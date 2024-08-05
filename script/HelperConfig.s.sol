@@ -25,14 +25,16 @@ contract HelperConfig is Script {
     }
 
     function getAnvilEthConfig() public {
-        vm.startBroadcast();
+        if (activeNetworkConfig.priceFeed == address(0)) {
+            vm.startBroadcast();
 
-        MockAggregatorV3 mockAggregatorV3 = new MockAggregatorV3(8, 2000e8);
+            MockAggregatorV3 mockAggregatorV3 = new MockAggregatorV3(8, 2000e8);
 
-        vm.stopBroadcast();
+            vm.stopBroadcast();
 
-        activeNetworkConfig = NetworkConfig({
-            priceFeed: address(mockAggregatorV3)
-        });
+            activeNetworkConfig = NetworkConfig({
+                priceFeed: address(mockAggregatorV3)
+            });
+        }
     }
 }
