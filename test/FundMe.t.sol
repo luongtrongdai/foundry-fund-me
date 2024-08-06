@@ -12,12 +12,15 @@ import {FundMeScript} from "../script/FundMe.s.sol";
 
 contract FundMeTest is Test {
     FundMe public fundMe;
+    address USER = makeAddr("user");
+    uint256 constant STARTING_BALANCE = 10 ether;
 
     function setUp() external {
         FundMeScript fundMeScript = new FundMeScript();
         fundMeScript.run();
         
         fundMe = fundMeScript.fundMe();
+        vm.deal(USER, STARTING_BALANCE);
     }
 
     function test_MINIMUM_USD_isFiveDolar() public view {
@@ -39,11 +42,35 @@ contract FundMeTest is Test {
         fundMe.fund();
     }
 
-    function test_Fund_UpdatedFunder() public {
-        fundMe.fund{value: 5 ether}();
-        assertEq(fundMe.getFunder(0), address(this));
+    modifier funded() {
+        vm.prank(USER);
+    
+        fundMe.fund{value: 0.1 ether}();
+        _;
+    }
+
+    function test_Fund_UpdatedFunder() public funded {
+        assertEq(fundMe.getFunder(0), USER);
         
-        uint256 amountFunded = fundMe.getAddressToAmountFunded(address(this));
-        assertEq(5 ether, amountFunded);
+        uint256 amountFunded = fundMe.getAddressToAmountFunded(USER);
+        assertEq(0.1 ether, amountFunded);
+    }
+
+    function test_OnlyOwnerCanWithdraw() public funded {
+        vm.expectRevert();
+        vm.prank(USER);
+        fundMe.withdraw();
+    }
+
+    function test_WithdrawWithASingleFunder() public funded {
+        uint256 currentBalance = msg.sender.balance;
+    
+        vm.prank(msg.sender);
+        fundMe.withdraw();
+        assertEq(fundMe.getAddressToAmountFunded(USER), 0);
+
+        uint256 afterBalance = msg.sender.balance;
+        assertEq(currentBalance + 0.1 ether, afterBalance);
+        assertEq(0, address(fundMe).balance);
     }
 }
