@@ -4,8 +4,8 @@ pragma solidity 0.8.19;
 
 // 2. Imports
 import {Test, console} from "forge-std/Test.sol";
-import {FundMe} from "../src/FundMe.sol";
-import {FundMeScript} from "../script/FundMe.s.sol";
+import {FundMe} from "src/FundMe.sol";
+import {FundMeScript} from "script/FundMe.s.sol";
 
 // 3. Interfaces, Libraries, Contracts
 
@@ -14,6 +14,7 @@ contract FundMeTest is Test {
     FundMe public fundMe;
     address USER = makeAddr("user");
     uint256 constant STARTING_BALANCE = 10 ether;
+    uint256 constant GAS_PRICE = 1;
 
     function setUp() external {
         FundMeScript fundMeScript = new FundMeScript();
@@ -71,6 +72,34 @@ contract FundMeTest is Test {
 
         uint256 afterBalance = msg.sender.balance;
         assertEq(currentBalance + 0.1 ether, afterBalance);
+        assertEq(0, address(fundMe).balance);
+    }
+
+    function test_WithdrawWithMultipleFunder() public funded {
+        uint160 numberOfFunders = 10;
+
+        for (uint160 i = 0; i < numberOfFunders; ) {
+            hoax(address(i), 0.1 ether);
+            fundMe.fund{value: 0.1 ether}();
+            i = i + 1;
+        }
+
+        uint256 currentBalance = msg.sender.balance;
+        uint256 fundMeBalance = address(fundMe).balance;
+    
+        uint256 gasStart = gasleft();
+        vm.txGasPrice(GAS_PRICE);
+        vm.startPrank(msg.sender);
+        fundMe.withdraw();
+        vm.stopPrank();
+        uint256 gasEnd = gasleft();
+        assertEq(fundMe.getAddressToAmountFunded(USER), 0);
+
+        uint256 afterBalance = msg.sender.balance;
+        uint256 gasUsed = (gasStart - gasEnd) * tx.gasprice;
+        console.log("Gas used: ");
+        console.log(gasUsed);
+        assertEq(currentBalance + fundMeBalance, afterBalance);
         assertEq(0, address(fundMe).balance);
     }
 }
